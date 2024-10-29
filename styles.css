@@ -1,0 +1,67 @@
+.resright {
+  margin: auto;
+  display: block;
+  text-align: center;
+  max-width: 100%;
+}
+
+@media (min-width: 1200px) {
+.resright {
+    display: block;
+    float: right;
+    clear: both;
+    padding: 10px;
+    text-align: center;
+}
+}
+
+p {
+    display: block;
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+}
+
+
+
+article {
+    display: block;
+}
+
+body {
+    background-color: #000000;
+    margin-bottom: 200px;
+    font-family: "Garamond";
+    display: block
+    margin: 8px;
+}
+
+main {
+    max-width: 800px;
+    margin: auto;
+}
+
+a {
+    text-decoration: none!important;
+}
+figcaption {
+    text-align: center;
+    display: block;
+    font-style: italic;
+    color: #FFFFFF;
+} 
+
+figure {
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    margin-inline-start: 40px;
+    margin-inline-end: 40px;
+}
+
+h2 {
+    color:#FFFF00;
+    font-size:150%;
+    font-family:garamond;
+    text-align:center;
+}

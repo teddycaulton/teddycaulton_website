@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<style>
+  .box {
+    border: 1px solid #ccc; /* Add a border */
+    padding: 10px; /* Add some padding */
+    margin: 10px 0; /* Space around the box */
+    overflow-x: auto; /* Allow horizontal scrolling for long lines */
+    font-family: Garamond; /* Consistent font family */
+  }
+  
+  pre {
+    color: #FFFFFF; /* Text color */
+    font-size: 125%; /* Font size */
+    white-space: pre-wrap; /* Allow wrapping */
+    word-wrap: break-word; /* Break long words to fit */
+  }
+</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang="en">
+
+<body>
+ <main>
+  <header>
+   <h1 style = "color:#0047AB;font-size:250%;font-family:garamond;text-align:center;"> How to convert Streamlit apps to a Snowflake Native App</h1>
+   <link href="../styles.css" rel="stylesheet">
+   <style>
+    ul {
+      list-style-type: none; /* Remove default bullets */
+      padding: 0; /* Remove padding */
+    }
+    li:before {
+      content: &#x2022; /* Add bullet character */
+      color: #FFFFFF; /* Bullet color */
+      vertical-align: middle; /* Align bullet with text */
+    }
+  </style>
+  </header>
+  <article>
+    <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+      I recently went through the process of converting Snowmonitor (my Streamlit app for managing Snowflake alerts) to a Snowflake Native app to allow for better integration 
+      into Snowflake and posting to the Snowflake marketplace.  Snowflake currently has poor documentation for native app set up and there's a lot of missing nuance around 
+      configuration setup, especially within Streamlit.  I wanted to document the process here and relevant code to save future native app developers the hassle of troubleshooting 
+      the same problems I did.
+     </p>
+     <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+      A couple things to start:
+     </p>
+     <ul>
+      <li>
+       <a style = "color:#FFFFFF;"> &#x2022; </a>
+       <a style = "color:#FFFFFF;font-size:125%;font-family:garamond;"> Streamlit on native apps are stuck in version 1.22, you'll probably need to rework features or revert features back to their experimental versions. </a>
+      </li>
+      <li>
+        <a style = "color:#FFFFFF;"> &#x2022; </a>
+        <a style = "color:#FFFFFF;font-size:125%;font-family:garamond;"> Native apps work in such a way that objects are owned by an application and actions are executed by an application role so apps are deployed into an environment completely blind.  </a>
+      </li>
+      <li>
+        <a style = "color:#FFFFFF;"> &#x2022; </a>
+        <a style = "color:#FFFFFF;font-size:125%;font-family:garamond;"> As such, you need to be purposeful how you grant privileges and objects to an application/application role upon setup  </a>
+      </li>
+      <li></li>
+        <a style = "color:#FFFFFF;"> &#x2022; </a>
+        <a style = "color:#FFFFFF;font-size:125%;font-family:garamond;"> The above also means that if you have any 'use role' commands those need to be stripped out  </a>
+      </li>
+     </ul>
+     <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+     To start, you'll want Snow CLI installed for this to make development easier, I'll leave it to you to configure and test your connection.  Once you've navigated to the directory where your project will live, execute the following:
+     </p>
+     <div class="box">
+      <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>snow app init snowmonitor</code>
+      </pre>
+     </div>
+     <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+      You'll be left with the following:
+      </p>
+      <img style="max-width: 100%;" src="../images/intial_native_app.png" border="1px">
+      <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+        Drop your Streamlit app inside your app folder or it won't be legible, this is what my directory looked like at the end of the port:
+      </p>
+      <img style="max-width: 100%;" src="../images/final_native_app.png" border="1px">
+      <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+      The .gitignore and READMEs are self-explanatory, I want to outline the rest of these files
+      </p>
+      <hr>
+      <span style='font-weight: bold;color:#FFFFFF;font-size:175%;font-family:garamond;'>manifest.yml</span>
+      <div class="box">
+        <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>manifest_version: 1
+version: 
+    name: snowmonitor
+    label: "V1_0"
+artifacts:
+  readme: README.md
+  setup_script: setup_script.sql
+  default_Streamlit: Streamlit/0_Alert_Management.py
+privileges:
+  - READ SESSION:
+      description: "To allow Streamlit to access some context functions"</code>
+        </pre>
+       </div>
+       <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+        A few notes:
+       </p>
+       <ul>
+        <li>
+         <a style = "color:#FFFFFF;"> &#x2022; </a>
+         <a style = "color:#FFFFFF;font-size:125%;font-family:garamond;"> The manifest_version is mandatory, leave it as 1 for now </a>
+        </li>
+        <li>
+          <a style = "color:#FFFFFF;"> &#x2022; </a>
+          <a style = "color:#FFFFFF;font-size:125%;font-family:garamond;"> The version is mostly for metadata, you can copy what I have or read the docs and configure it after you're ready to publish  </a>
+        </li>
+        <li>
+          <a style = "color:#FFFFFF;"> &#x2022; </a>
+          <a style = "color:#FFFFFF;font-size:125%;font-family:garamond;"> References is where you link objects in Snowflake so that you can reference them within your application.  I'll come back to this section later  </a>
+        </li>
+       </ul>
+       <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+        Artifacts is where all the Streamlit magic happens, link your readme and setup_script like you can see above and make sure your default Streamlit matches whatever 
+        .py file you've created for your main Streamlit app. The privileges section is where you can configure privileges that the consumer can grant through the UI.  
+        You are very limited in your selection and the 6 available commands can be found below.  If you want to grant additional privileges, you'll need to have the consumer 
+        create an owners rights stored procedure that your application can call to execute code as accountadmin rather than the application role.
+        See the full documentation here:       
+       </p>
+       <a style = "color:#0047AB;font-size:125%;font-family:garamond;" href="https://docs.snowflake.com/en/developer-guide/native-apps/requesting-privs">&#128279 Request global privileges from consumers | Snowflake Documentation</a>
+       <p> </p>
+       <a style = "color:#0047AB;font-size:125%;font-family:garamond;" href="https://docs.snowflake.com/en/developer-guide/native-apps/creating-manifest">&#128279 Create the manifest file for an application package | Snowflake Documentation</a>
+       <p></p>
+       <hr>
+       <span style='font-weight: bold;color:#FFFFFF;font-size:175%;font-family:garamond;'>setup_script.sql</span>
+       <div class="box">
+         <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>CREATE OR ALTER VERSIONED SCHEMA core;
+CREATE APPLICATION ROLE IF NOT EXISTS app_public;
+CREATE SCHEMA IF NOT EXISTS core;
+GRANT USAGE ON SCHEMA core TO APPLICATION ROLE app_public;
+
+CREATE STREAMLIT IF NOT EXISTS CORE.SNOWMONITOR_STREAMLIT
+  FROM '/streamlit'
+  MAIN_FILE = '/0_Alert_Management.py'
+;
+
+GRANT USAGE ON STREAMLIT CORE.SNOWMONITOR_STREAMLIT TO APPLICATION ROLE app_public;</code>
+         </pre>
+        </div>
+        <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+          The setup script allows you to define SnowSQL code that will run when your consumer initially installs the application, the core code you'll need is below but you can also define anything else your application might possibly need.    
+         </p> 
+         <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+          The above code just defines the schemas where the app will live, the Streamlit app, the application role and then grants usage on the native app to the application role defined above.  I'll be coming back to this file when we’re defining procedures to allow for more privileges than allowed in the manifest.yml.         </p>
+          <hr>
+          <span style='font-weight: bold;color:#FFFFFF;font-size:175%;font-family:garamond;'>snowflake.yml</span>
+          <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+            Don't overcomplicate this part of the native app, this is everything you'll need to stand up the app:           </p> 
+          <div class="box">
+            <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>definition_version: 1
+native_app:
+    name: snowmonitor
+    source_stage: stage_content.snowmonitor_stage
+    artifacts:
+      - src: app/*
+        dest: ./
+    package:
+      name: snowmonitor_package
+    application:
+      name: snowmonitor_streamlit
+      debug: false</code>
+            </pre>
+           </div>
+           <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+            replace all the names and paths with those desired.  This file determines where data is stored and what to name the application.  Now that you've configured everything you can test deployment by executing:          
+          </p>
+          <div class="box">
+            <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>snow app run -c connection_name</code>
+            </pre>
+           </div>
+           <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+            If all configuration files are set up correctly you should be notified that your app is running and be able to view your Streamlit app within the Snowflake UI under the apps section.          
+          </p>
+          <hr>
+          <span style='font-weight: bold;color:#FFFFFF;font-size:175%;font-family:garamond;'>Expanding privileges outside the manifest.yml header</span>
+          <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+            The privileges header has a limited scope of commands you can request, in my case, I needed to be able to execute, suspend and resume alerts.  There's currently no way to ask a consumer for these privileges so the only workaround is to get the user to create a owner's rights stored procedure that the streamlit app can execute.  I'll use creating execute alerts privileges as an example.  First, inside of the setup_script.sql file, add the following code to run upon initial install:          
+          </p>
+          <div class="box">
+            <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>CREATE OR ALTER VERSIONED SCHEMA config;
+GRANT USAGE ON SCHEMA config TO APPLICATION ROLE app_public;
+
+CREATE PROCEDURE IF NOT EXISTS CONFIG.REGISTER_SINGLE_REFERENCE(ref_name STRING, operation STRING, ref_or_alias STRING)
+  RETURNS STRING
+  LANGUAGE SQL
+  AS $$
+    BEGIN
+      CASE (operation)
+        WHEN 'ADD' THEN
+          SELECT SYSTEM$SET_REFERENCE(:ref_name, :ref_or_alias);
+        WHEN 'REMOVE' THEN
+          SELECT SYSTEM$REMOVE_REFERENCE(:ref_name, :ref_or_alias);
+        WHEN 'CLEAR' THEN
+          SELECT SYSTEM$REMOVE_ALL_REFERENCES(:ref_name);
+      ELSE
+        RETURN 'unknown operation: ' || operation;
+      END CASE;
+      RETURN NULL;
+    END;
+  $$;</code>
+            </pre>
+           </div>
+           <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+            This code creates a config schema under the native app package and defines a procedure that based on inputs adds a system reference.  Then inside of the consumer account after install we would run the following code:          
+          </p>
+          <div class="box">
+            <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>CREATE DATABASE IF NOT EXISTS SNOWMONITOR;
+CREATE SCHEMA IF NOT EXISTS snowmonitor.SNOWMONITOR_SCHEMA;
+GRANT ALL PRIVILEGES ON DATABASE SNOWMONITOR TO APPLICATION SNOWMONITOR_STREAMLIT;
+GRANT ALL PRIVILEGES ON SCHEMA SNOWMONITOR.SNOWMONITOR_SCHEMA TO APPLICATION SNOWMONITOR_STREAMLIT;
+
+-- Alert Execution Code
+CREATE PROCEDURE IF NOT EXISTS SNOWMONITOR.SNOWMONITOR_SCHEMA.EXECUTE_ALERT(alert_input VARCHAR)
+    RETURNS VARCHAR
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+    AS $$
+    DECLARE
+        query STRING;
+        grant_query STRING;
+    BEGIN
+        GRANT EXECUTE ALERT ON ACCOUNT TO ROLE accountadmin;
+        GRANT_QUERY := 'GRANT OPERATE ON ALERT '||alert_input||' TO ROLE ACCOUNTADMIN';
+        EXECUTE IMMEDIATE :GRANT_QUERY;
+        QUERY := 'EXECUTE ALERT '||alert_input||'';
+        EXECUTE IMMEDIATE :QUERY;
+        RETURN 'done';
+    END;
+    $$
+;
+
+CALL SNOWMONITOR_STREAMLIT.CONFIG.REGISTER_SINGLE_REFERENCE('EXECUTE_ALERT', 'ADD', SYSTEM$REFERENCE('PROCEDURE', 'SNOWMONITOR.SNOWMONITOR_SCHEMA.EXECUTE_ALERT(VARCHAR)', 'PERSISTENT', 'USAGE'));</code>
+            </pre>
+           </div>
+           <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+           This SnowSQl code creates a database for native app related transactions and creates a procedure with owner's rights that executes an alert.  Finally, it calls the register_single_reference() function defined in the setup_script.sql to add the procedure as a reference.  Back in the setup_script.sql, add the following code:          
+          </p>
+          <div class="box">
+            <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>CREATE PROCEDURE IF NOT EXISTS CORE.execute_alert_in_consumer_account(alert_input VARCHAR)
+RETURNS VARCHAR
+LANGUAGE SQL
+AS $$
+DECLARE
+  query STRING;
+BEGIN
+    QUERY := 'CALL REFERENCE(''EXECUTE_ALERT'')('''|| alert_input ||''')';
+    EXECUTE IMMEDIATE QUERY;
+    RETURN :QUERY;
+END;
+$$
+;</code>
+            </pre>
+           </div>
+           <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+           This is a final procedure created under the native app package that takes an alert name input and then passes it into the system reference. This then executes the alert procedure on the consumer side using owner's rights to override native app permissions.  Implementation into Python code is as easy as running the following:          
+          </p>
+          <div class="box">
+            <pre style = "color:#00FF00;font-size:125%;font-family:garamond;">
+<code>CALL CORE.execute_alert_in_consumer_account('alert_name')</code>
+            </pre>
+           </div>
+           <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+            This will work for any privilege provided the consumer has the rights.  Additionally, there is full transparency with the user as they only need to request a consumer run the above SnowSQL code after installation of the native app.  This allows developers to let consumers see exactly what rights they're granting to an app. 
+          </p>
+          <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+            By detailing strategies to overcome limitations and optimize development processes, I've hopefully accelerated your path to building robust and scalable applications. The workarounds highlighted in this guide are designed to simplify the process of unlocking necessary privileges and configuring your environment efficiently. With these techniques at your disposal, you can avoid potential pitfalls and focus on leveraging Snowflake's capabilities to their fullest. Embracing these solutions not only enhances development speed but also empowers you to tackle complex scenarios with greater ease and confidence. As you apply these insights, you'll find that navigating Snowflake's environment becomes a more streamlined and productive experience, ultimately driving more value and innovation in your data applications.          
+          </p>
+          <p style = "color:#FFFFFF;font-size:125%;font-family:garamond;">
+            Snowmonitor is available as a paid application that anyone can log into and immediatly begin managing their alerts.  I'm asking for $5 a month or $50 a year but feel free to 
+            message me for a free trial.
+           </p>          
+           <a style = "color:#0047AB;font-size:150%;font-family:garamond;" href="https://snowmonitor.streamlit.app">SnowMonitor</a>
+  </article>
+ </main>
+</body>    
+
+</html>
+
+
+
+
+
+
+
