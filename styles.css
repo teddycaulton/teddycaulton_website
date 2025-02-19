@@ -45,6 +45,10 @@ main {
 a {
     text-decoration: none!important;
 }
+
+a:visited{
+    color:blue;
+}
 figcaption {
     text-align: center;
     display: block;
