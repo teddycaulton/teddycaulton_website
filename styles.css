@@ -42,7 +42,7 @@ main {
     margin: auto;
 }
 
-a:visited {
+a {
     text-decoration: none!important;
     color:blue;
 }
